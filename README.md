@@ -1,5 +1,4 @@
-BRouter
-=======
+# BRouter
 
 BRouter is a configurable OSM offline router with elevation awareness, Java +
 Android. Designed to be multi-modal with a particular emphasis on bicycle
@@ -7,80 +6,46 @@ and energy-based car routing.
 
 For more infos see [http://brouter.de/brouter](http://brouter.de/brouter).
 
+## Install Dependencies
 
-## BRouter on Android
+This project uses Gradle version 7.6, which supports Java up to version 19. If you have a newer version of Java you'll have to update the Gradle version in `/gradle/wrapper/gradle-wrapper.properties`.
 
-You can install the BRouter app on your Android device from
-[F-Droid](https://f-droid.org/packages/btools.routingapp) or [Google Play
-Store](https://play.google.com/store/apps/details?id=btools.routingapp). You
-can also [build BRouter](#build-and-install) yourself. You can find detailed
-documentation of the BRouter Android app in
-[`docs/users/android_quickstart.md`](docs/users/android_quickstart.md).
+### Ubuntu
 
-<a href="https://f-droid.org/packages/btools.routingapp" target="_blank">
-<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="90"/></a>
-<a href="https://play.google.com/store/apps/details?id=btools.routingapp" target="_blank">
-<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png" alt="Get it on Google Play" height="90"/></a>
+Install the `javac` compiler:
 
-### Android with Locus
-
-You can use BRouter as the offline routing engine for [Locus
-Map](https://www.locusmap.eu/) on your Android device. This is currently the
-most featureful and maintained solutions for using BRouter on your Android
-device.
-
-A full documentation on how to set this up is available at
-[https://www.locusmap.eu/locus-map-can-navigate-offline/](https://www.locusmap.eu/locus-map-can-navigate-offline/).
-
-
-### Android with OSMAnd
-
-Alternatively, you can also use BRouter as the offline routing engine for
-[OSMAnd](https://osmand.net/) on your Android device.
-
-A full documentation on how to set this up is available at
-[`docs/users/osmand.md`](docs/users/osmand.md).
-
-
-## BRouter on Windows/Linux/Mac OS
-
-### Build and Install
-
-To compile the BRouter Android app, the Android SDK path must first be set in a file called `local.properties` in the main folder:
-
-```
-sdk.dir=<your/android/sdk/path>
+```bash
+apt-get install default-jdk
 ```
 
-
-Build BRouter with the Android app (if Android SDK path is set):
-
-```
-./gradlew clean build
-```
-
-Build BRouter without the Android app:
+## Build and Run Server
 
 ```
-./gradlew clean build -x :brouter-routing-app:build
+# build the server
+bash ./scripts/build.sh
+
+# update the segment files to the most up-to-date for most of Canada (must have these downloaded to run the server)
+bash ./scripts/update_segments.sh
+
+# run the server on Linux
+bash ./scripts/run.sh
 ```
 
-Build JAR file for server and map creator with all dependent classes:
+To run the Brouter HTTP server on another platform, use the helper scripts provided in `misc/scripts/standalone`.
+
+The API endpoints exposed by this HTTP server are documented in the
+[`brouter-server/src/main/java/btools/server/request/ServerHandler.java`](brouter-server/src/main/java/btools/server/request/ServerHandler.java)
+file.
+
+E.g. HTTP request:
 
 ```
-./gradlew clean build fatJar # places JAR file in brouter-server/build/libs/
+http://localhost:17777/brouter?lonlats=-83.014811,42.323696|-82.999228,42.291768&nogos=&profile=trekking&alternativeidx=0&format=geojson
 ```
 
-Build ZIP file for distribution with readmes, profiles, APK and JAR:
+## Segments (data) files
 
-```
-./gradlew distZip # places ZIP file in brouter-server/build/distributions/
-```
-
-
-### Get the required segments (data) files
-
-Routing data files are organised as 5*5 degree files,
+Routing data files are organised as 5\*5 degree files,
 with the filename containing the south-west corner
 of the square, which means:
 
@@ -90,7 +55,6 @@ of the square, which means:
 These data files, called "segments" across BRouter, are generated from
 [OpenStreetMap](https://www.openstreetmap.org/) data and stored in a custom
 binary format (rd5) for improved efficiency of BRouter routing.
-
 
 #### Download them from brouter.de
 
@@ -106,8 +70,7 @@ You can also generate the segments files you need directly from a planet dump
 of OpenStreetMap data (or a [GeoFabrik extract](https://download.geofabrik.de/)).
 
 More documentation of this is available in the
-[`docs/developers/build_segments.md`](docs/developers/build_segments.md) file.
-
+[`misc/readmes/mapcreation.md`](misc/readmes/mapcreation.md) file.
 
 ### (Optional) Generate profile variants
 
@@ -120,39 +83,12 @@ to help you quickly generate variants based on the default profiles, to create
 a default set of profiles covering most of the basic use cases.
 
 Have a look at the
-[`docs/developers/profile_developers_guide.md`](docs/developers/profile_developers_guide.md)
+[`misc/readmes/profile_developers_guide.txt`](misc/readmes/profile_developers_guide.txt)
 for an in-depth guide on profiles edition and customization.
-
-
-### Run the BRouter HTTP server
-
-Helpers scripts are provided in `misc/scripts/standalone` to quickly spawn a
-BRouter HTTP server for various platforms.
-
-* Linux/Mac OS: `./misc/scripts/standalone/server.sh`
-* Windows (using Bash): `./misc/scripts/standalone/server.sh`
-* Windows (using CMD): `misc\scripts\standalone\server.cmd`
-
-The API endpoints exposed by this HTTP server are documented in the
-[`brouter-server/src/main/java/btools/server/request/ServerHandler.java`](brouter-server/src/main/java/btools/server/request/ServerHandler.java)
-file.
-
 
 ## Documentation
 
-More documentation is available in the [`docs`](docs) folder.
-
-
-## Related Projects
-
-* [nrenner/BRouter-web](https://github.com/nrenner/brouter-web), a web interface on
-    top of the BRouter HTTP server. An online instance is available at
-    [http://brouter.de/brouter-web/](http://brouter.de/brouter-web/).
-* [poutnikl/Brouter-profiles](https://github.com/poutnikl/Brouter-profiles/wiki),
-    a collection of BRouter profiles.
-* [Phyks/BRouterTesting](https://github.com/Phyks/BrouterTesting), a
-    collection of test cases for helping develop new BRouter profiles.
-
+More documentation is available in the [`misc/readmes`](misc/readmes) folder.
 
 ## License
 
