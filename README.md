@@ -43,6 +43,10 @@ E.g. HTTP request:
 http://localhost:17777/brouter?lonlats=-83.014811,42.323696|-82.999228,42.291768&nogos=&profile=trekking&alternativeidx=0&format=geojson
 ```
 
+### Build and run using Docker
+
+A `Dockerfile` is included. Build the docker image using `docker build --tag brouter .` and start the container with `docker run -d -p 17777:17777 --name brouter brouter`.
+
 ## Segments (data) files
 
 Routing data files are organised as 5\*5 degree files,
