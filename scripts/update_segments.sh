@@ -2,19 +2,34 @@
 
 update_segments () {
   mkdir -p "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4;
-
-  # Downloads segments most of Canada
-  SW_corner_lat=40
-  NE_corner_lat=60
-  SW_corner_lon=-140
-  NE_corner_lon=-50
-  for W in $(seq $((-NE_corner_lon - 5)) 5 $((0 - SW_corner_lon)))
+  for E in $(seq 0 5 180)
   do
-    for N in $(seq $SW_corner_lat 5 $((NE_corner_lat - 5)))
+    for N in $(seq 0 5 80)
+    do
+      echo ""
+      echo "Downloading E${E}_N${N}"
+      curl -f -o "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4/E${E}_N${N}.rd5 http://brouter.de/brouter/segments4/E${E}_N${N}.rd5
+    done
+    for S in $(seq 0 5 90)
+    do
+      echo ""
+      echo "Downloading E${E}_S${S}"
+      curl -f -o "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4/E${E}_S${S}.rd5 http://brouter.de/brouter/segments4/E${E}_S${S}.rd5
+    done
+  done
+  for W in $(seq 0 5 180)
+  do
+    for N in $(seq 0 5 80)
     do
       echo ""
       echo "Downloading W${W}_N${N}"
-      curl -o "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4/W${W}_N${N}.rd5 http://brouter.de/brouter/segments4/W${W}_N${N}.rd5
+      curl -f -o "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4/W${W}_N${N}.rd5 http://brouter.de/brouter/segments4/W${W}_N${N}.rd5
+    done
+    for S in $(seq 0 5 90)
+    do
+      echo ""
+      echo "Downloading W${W}_S${S}"
+      curl -f -o "$(dirname "${BASH_SOURCE[0]}")"/../misc/segments4/W${W}_S${S}.rd5 http://brouter.de/brouter/segments4/W${W}_S${S}.rd5
     done
   done
 }
