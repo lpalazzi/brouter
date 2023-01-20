@@ -67,7 +67,8 @@ assign is_ldcr =
 
 assign isbike = or bicycle_road=yes or bicycle=yes or or bicycle=permissive bicycle=designated lcn=yes
 assign ispaved = surface=paved|asphalt|concrete|paving_stones|sett
-assign isunpaved = not or surface= or ispaved surface=fine_gravel|cobblestone
+#assign isunpaved = not or surface= or ispaved surface=fine_gravel|cobblestone
+assign isunpaved = not or ispaved surface=fine_gravel|cobblestone
 assign probablyGood = or ispaved and ( or isbike highway=footway ) not isunpaved
 
 
@@ -188,7 +189,7 @@ assign costfactor
   #
   # exclude unpaved roads
   #
-  else if ( isunpaved ) then 10000
+  else if ( isunpaved ) then 40
 
   #
   # all other exclusions below (access, steps, ferries,..)
