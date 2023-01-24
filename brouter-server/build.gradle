@@ -76,6 +76,7 @@ dependencies {
     implementation project(':brouter-map-creator')
     implementation project(':brouter-mapaccess')
     implementation project(':brouter-util')
+    implementation 'org.mongodb:mongodb-driver-sync:4.8.2'
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20180813'

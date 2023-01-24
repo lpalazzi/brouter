@@ -12,6 +12,7 @@ import btools.router.OsmNogoPolygon;
 import btools.router.OsmTrack;
 import btools.router.RoutingContext;
 import btools.server.ServiceContext;
+import btools.server.Database;
 
 /**
  * URL query parameter handler for web and standalone server. Supports all
@@ -263,6 +264,10 @@ public class ServerHandler extends RequestHandler {
     List<OsmNodeNamed> result = new ArrayList<OsmNodeNamed>();
     parseNogoPolygons(params.get("polylines"), result, false);
     parseNogoPolygons(params.get("polygons"), result, true);
+    String nogoGroupIds = params.get("nogoGroupIds");
+    if (nogoGroupIds != null && !nogoGroupIds.equals("")) {
+      parseNogoPolygons(Database.getPolylinesByNogoGroups(nogoGroupIds.split("\\|")), result, false);
+    }
     return result.size() > 0 ? result : null;
   }
 
