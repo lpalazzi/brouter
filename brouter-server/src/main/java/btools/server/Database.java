@@ -15,6 +15,7 @@ import static com.mongodb.client.model.Filters.in;
 
 public class Database {
   private static MongoCollection<Document> nogos;
+  public enum NogoGroupType { region, nogoGroup }
 
   public static void init() {
     String uri = System.getenv("MONGODB_URL");
@@ -26,11 +27,11 @@ public class Database {
     nogos = database.getCollection("nogos");
   }
 
-  public static String getPolylinesByNogoGroups(String[] nogoGroupIds) {
+  public static String getPolylinesByRegionsOrGroups(String[] ids, NogoGroupType groupType) {
     String polylines = "";
     Boolean firstObject = true;
-    ObjectId[] nogoGroupObjIds = Arrays.stream(nogoGroupIds).map(id -> new ObjectId(id)).toArray(ObjectId[]::new);
-    FindIterable<Document> nogoIterable = nogos.find(in("nogoGroup", nogoGroupObjIds));
+    ObjectId[] objIds = Arrays.stream(ids).map(id -> new ObjectId(id)).toArray(ObjectId[]::new);
+    FindIterable<Document> nogoIterable = nogos.find(in(groupType.toString(), objIds));
     MongoCursor<Document> cursor = nogoIterable.iterator();
     try {
       while (cursor.hasNext()) {

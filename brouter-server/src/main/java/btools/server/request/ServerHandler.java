@@ -266,7 +266,11 @@ public class ServerHandler extends RequestHandler {
     parseNogoPolygons(params.get("polygons"), result, true);
     String nogoGroupIds = params.get("nogoGroupIds");
     if (nogoGroupIds != null && !nogoGroupIds.equals("")) {
-      parseNogoPolygons(Database.getPolylinesByNogoGroups(nogoGroupIds.split("\\|")), result, false);
+      parseNogoPolygons(Database.getPolylinesByRegionsOrGroups(nogoGroupIds.split("\\|"), Database.NogoGroupType.nogoGroup), result, false);
+    }
+    String regionIds = params.get("regionIds");
+    if (regionIds != null && !regionIds.equals("")) {
+      parseNogoPolygons(Database.getPolylinesByRegionsOrGroups(regionIds.split("\\|"), Database.NogoGroupType.region), result, false);
     }
     return result.size() > 0 ? result : null;
   }
