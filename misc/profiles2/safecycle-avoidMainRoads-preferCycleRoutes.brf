@@ -8,12 +8,15 @@
 # Bike profile
 assign validForBikes = true
 
+# Switches based on user's route preferences
+assign avoid_unsafe             = true   # %avoid_unsafe% | Set to true to avoid standard highways | boolean
+assign preferPaved              = false  # %preferPaved% | Set to true to avoid unpaved and undefined road types | boolean
+assign stick_to_cycleroutes     = true   # %stick_to_cycleroutes% | Set to true to just follow cycleroutes | boolean
+
 # Use the following switches to change behaviour
 assign allow_steps              = true   # %allow_steps% | Set to false to disallow steps | boolean
 assign allow_ferries            = true   # %allow_ferries% | set to false to disallow ferries | boolean
 assign ignore_cycleroutes       = false  # %ignore_cycleroutes% | Set to true for better elevation results | boolean
-assign stick_to_cycleroutes     = false  # %stick_to_cycleroutes% | Set to true to just follow cycleroutes | boolean
-assign avoid_unsafe             = true  # %avoid_unsafe% | Set to true to avoid standard highways | boolean
 assign considerTurnRestrictions = true   # %considerTurnRestrictions% | Set to true to take turn restrictions into account | boolean
 assign processUnusedTags        = false  # %processUnusedTags% | Set to true to output unused tags in data tab | boolean
 
@@ -186,6 +189,11 @@ assign costfactor
   else if ( highway=proposed|abandoned     ) then   10000
 
   #
+  # exclude unpaved roads
+  #
+  else if ( and preferPaved not or surface= ispaved ) then 10000
+
+  #
   # all other exclusions below (access, steps, ferries,..)
   # should not be deleted by the decoder, to be available
   # in voice-hint-processing
@@ -210,7 +218,7 @@ assign costfactor
   #
   else if ( is_ldcr ) then 1                   # always treated as perfect (=1)
   else
-  add ( if stick_to_cycleroutes then 0.5 else 0.05 )  # everything else somewhat up
+  add ( if stick_to_cycleroutes then 0.8 else 0.05 )  # everything else somewhat up
 
   #
   # some other highway types

@@ -9,9 +9,9 @@
 assign validForBikes = true
 
 # Switches based on user's route preferences
-assign avoid_unsafe             = false  # %avoid_unsafe% | Set to true to avoid standard highways | boolean
-assign preferPaved              = false  # %preferPaved% | Set to true to avoid unpaved and undefined road types | boolean
-assign stick_to_cycleroutes     = false  # %stick_to_cycleroutes% | Set to true to just follow cycleroutes | boolean
+assign avoid_unsafe             = true   # %avoid_unsafe% | Set to true to avoid standard highways | boolean
+assign preferPaved              = true   # %preferPaved% | Set to true to avoid unpaved and undefined road types | boolean
+assign stick_to_cycleroutes     = true   # %stick_to_cycleroutes% | Set to true to just follow cycleroutes | boolean
 
 # Use the following switches to change behaviour
 assign allow_steps              = true   # %allow_steps% | Set to false to disallow steps | boolean
