@@ -8,6 +8,9 @@
 # Bike profile
 assign validForBikes = true
 
+# Allow 800m buffer for waypoints not directly on a routable location 
+assign waypointCatchingRange = 800.0
+
 # Switches based on user's route preferences
 assign avoid_unsafe             = false  # %avoid_unsafe% | Set to true to avoid standard highways | boolean
 assign preferPaved              = true   # %preferPaved% | Set to true to avoid unpaved and undefined road types | boolean
