@@ -21,9 +21,13 @@ import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
 import btools.mapaccess.MatchedWaypoint;
 import btools.mapaccess.OsmPos;
@@ -45,10 +49,13 @@ public final class OsmTrack {
 
   public boolean showspeed;
   public boolean showSpeedProfile;
+  public boolean showTime;
+
+  public Map<String, String> params;
 
   public List<OsmNodeNamed> pois = new ArrayList<OsmNodeNamed>();
 
-  private static class OsmPathElementHolder {
+  public static class OsmPathElementHolder {
     public OsmPathElement node;
     public OsmPathElementHolder nextHolder;
   }
@@ -92,6 +99,64 @@ public final class OsmTrack {
 
   public void copyDetours(OsmTrack source) {
     detourMap = source.detourMap == null ? null : new FrozenLongMap<OsmPathElementHolder>(source.detourMap);
+  }
+
+  public void addDetours(OsmTrack source) {
+    if (detourMap != null) {
+      CompactLongMap<OsmPathElementHolder> tmpDetourMap = new CompactLongMap<OsmPathElementHolder>();
+
+      List oldlist = ((FrozenLongMap) detourMap).getValueList();
+      long[] oldidlist = ((FrozenLongMap) detourMap).getKeyArray();
+      for (int i = 0; i < oldidlist.length; i++) {
+        long id = oldidlist[i];
+        OsmPathElementHolder v = detourMap.get(id);
+
+        tmpDetourMap.put(id, v);
+      }
+
+      if (source.detourMap != null) {
+        long[] idlist = ((FrozenLongMap) source.detourMap).getKeyArray();
+        for (int i = 0; i < idlist.length; i++) {
+          long id = idlist[i];
+          OsmPathElementHolder v = source.detourMap.get(id);
+          if (!tmpDetourMap.contains(id) && source.nodesMap.contains(id)) {
+            tmpDetourMap.put(id, v);
+          }
+        }
+      }
+      detourMap = new FrozenLongMap<OsmPathElementHolder>(tmpDetourMap);
+    }
+  }
+
+  OsmPathElement lastorigin = null;
+
+  public void appendDetours(OsmTrack source) {
+    if (detourMap == null) {
+      detourMap = source.detourMap == null ? null : new CompactLongMap<OsmPathElementHolder>();
+    }
+    if (source.detourMap != null) {
+      int pos = nodes.size() - source.nodes.size() + 1;
+      OsmPathElement origin = null;
+      if (pos > 0)
+        origin = nodes.get(pos);
+      for (OsmPathElement node : source.nodes) {
+        long id = node.getIdFromPos();
+        OsmPathElementHolder nh = new OsmPathElementHolder();
+        if (node.origin == null && lastorigin != null)
+          node.origin = lastorigin;
+        nh.node = node;
+        lastorigin = node;
+        OsmPathElementHolder h = detourMap.get(id);
+        if (h != null) {
+          while (h.nextHolder != null) {
+            h = h.nextHolder;
+          }
+          h.nextHolder = nh;
+        } else {
+          detourMap.fastPut(id, nh);
+        }
+      }
+    }
   }
 
   public void buildMap() {
@@ -275,10 +340,16 @@ public final class OsmTrack {
   }
 
   public void appendTrack(OsmTrack t) {
+    int i = 0;
+
     int ourSize = nodes.size();
+    if (ourSize > 0 && t.nodes.size() > 1) {
+      OsmPathElement olde = nodes.get(ourSize - 1);
+      t.nodes.get(1).origin = olde;
+    }
     float t0 = ourSize > 0 ? nodes.get(ourSize - 1).getTime() : 0;
     float e0 = ourSize > 0 ? nodes.get(ourSize - 1).getEnergy() : 0;
-    for (int i = 0; i < t.nodes.size(); i++) {
+    for (i = 0; i < t.nodes.size(); i++) {
       if (i > 0 || ourSize == 0) {
         OsmPathElement e = t.nodes.get(i);
         e.setTime(e.getTime() + t0);
@@ -298,13 +369,20 @@ public final class OsmTrack {
       } else {
         voiceHints.list.addAll(t.voiceHints.list);
       }
+    } else {
+      if (detourMap == null) {
+        //copyDetours( t );
+        detourMap = t.detourMap;
+      } else {
+        addDetours(t);
+      }
     }
 
     distance += t.distance;
     ascend += t.ascend;
     plainAscend += t.plainAscend;
     cost += t.cost;
-    energy += t.energy;
+    energy = (int) nodes.get(nodes.size() - 1).getEnergy();
 
     showspeed |= t.showspeed;
     showSpeedProfile |= t.showSpeedProfile;
@@ -343,12 +421,14 @@ public final class OsmTrack {
     int turnInstructionMode = voiceHints != null ? voiceHints.turnInstructionMode : 0;
 
     sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    for (int i = messageList.size() - 1; i >= 0; i--) {
-      String message = messageList.get(i);
-      if (i < messageList.size() - 1)
-        message = "(alt-index " + i + ": " + message + " )";
-      if (message != null)
-        sb.append("<!-- ").append(message).append(" -->\n");
+    if (turnInstructionMode != 9) {
+      for (int i = messageList.size() - 1; i >= 0; i--) {
+        String message = messageList.get(i);
+        if (i < messageList.size() - 1)
+          message = "(alt-index " + i + ": " + message + " )";
+        if (message != null)
+          sb.append("<!-- ").append(message).append(" -->\n");
+      }
     }
 
     if (turnInstructionMode == 4) // comment style
@@ -365,8 +445,10 @@ public final class OsmTrack {
     sb.append("<gpx \n");
     sb.append(" xmlns=\"http://www.topografix.com/GPX/1/1\" \n");
     sb.append(" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n");
-    if (turnInstructionMode == 2) // locus style
-    {
+    if (turnInstructionMode == 9) { // BRouter style
+      sb.append(" xmlns:brouter=\"Not yet documented\" \n");
+    }
+    if (turnInstructionMode == 7) { // old locus style
       sb.append(" xmlns:locus=\"http://www.locusmap.eu\" \n");
     }
     sb.append(" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\" \n");
@@ -376,32 +458,61 @@ public final class OsmTrack {
     } else {
       sb.append(" creator=\"BRouter-" + version + "\" version=\"1.1\">\n");
     }
-
-    if (turnInstructionMode == 3) // osmand style
+    if (turnInstructionMode == 9) {
+      sb.append(" <metadata>\n");
+      sb.append("  <name>").append(name).append("</name>\n");
+      sb.append("  <extensions>\n");
+      sb.append("   <brouter:info>").append(messageList.get(0)).append("</brouter:info>\n");
+      if (params != null && params.size() > 0) {
+        sb.append("   <brouter:params><![CDATA[");
+        int i = 0;
+        for (Map.Entry<String, String> e : params.entrySet()) {
+          if (i++ != 0) sb.append("&");
+          sb.append(e.getKey()).append("=").append(e.getValue());
+        }
+        sb.append("]]></brouter:params>\n");
+      }
+      sb.append("  </extensions>\n");
+      sb.append(" </metadata>\n");
+    }
+    if (turnInstructionMode == 3 || turnInstructionMode == 8) // osmand style, cruiser
     {
       float lastRteTime = 0;
 
       sb.append(" <rte>\n");
 
-      sb.append("  <rtept lat=\"").append(formatILat(nodes.get(0).getILat())).append("\" lon=\"")
-        .append(formatILon(nodes.get(0).getILon())).append("\">\n")
-        .append("   <desc>start</desc>\n   <extensions>\n");
-
       float rteTime = getVoiceHintTime(0);
-
-      if (rteTime != lastRteTime) // add timing only if available
+      StringBuffer first = new StringBuffer();
+      // define start point
       {
-        double t = rteTime - lastRteTime;
-        sb.append("    <time>").append("" + (int) (t + 0.5)).append("</time>\n");
-        lastRteTime = rteTime;
+        first.append("  <rtept lat=\"").append(formatILat(nodes.get(0).getILat())).append("\" lon=\"")
+          .append(formatILon(nodes.get(0).getILon())).append("\">\n")
+          .append("   <desc>start</desc>\n   <extensions>\n");
+        if (rteTime != lastRteTime) // add timing only if available
+        {
+          double t = rteTime - lastRteTime;
+          first.append("    <time>").append("" + (int) (t + 0.5)).append("</time>\n");
+          lastRteTime = rteTime;
+        }
+        first.append("    <offset>0</offset>\n  </extensions>\n </rtept>\n");
       }
-      sb.append("    <offset>0</offset>\n  </extensions>\n </rtept>\n");
+      if (turnInstructionMode == 8) {
+        if (matchedWaypoints.get(0).direct && voiceHints.list.get(0).indexInTrack == 0) {
+          // has a voice hint do nothing, voice hint will do
+        } else {
+          sb.append(first.toString());
+        }
+      } else {
+        sb.append(first.toString());
+      }
 
       for (int i = 0; i < voiceHints.list.size(); i++) {
         VoiceHint hint = voiceHints.list.get(i);
         sb.append("  <rtept lat=\"").append(formatILat(hint.ilat)).append("\" lon=\"")
           .append(formatILon(hint.ilon)).append("\">\n")
-          .append("   <desc>").append(hint.getMessageString()).append("</desc>\n   <extensions>\n");
+          .append("   <desc>")
+          .append(turnInstructionMode == 3 ? hint.getMessageString() : hint.getCruiserMessageString())
+          .append("</desc>\n   <extensions>\n");
 
         rteTime = getVoiceHintTime(i + 1);
 
@@ -411,7 +522,9 @@ public final class OsmTrack {
           sb.append("    <time>").append("" + (int) (t + 0.5)).append("</time>\n");
           lastRteTime = rteTime;
         }
-        sb.append("    <turn>").append(hint.getCommandString()).append("</turn>\n    <turn-angle>").append("" + (int) hint.angle)
+        sb.append("    <turn>")
+          .append(turnInstructionMode == 3 ? hint.getCommandString() : hint.getCruiserCommandString())
+          .append("</turn>\n    <turn-angle>").append("" + (int) hint.angle)
           .append("</turn-angle>\n    <offset>").append("" + hint.indexInTrack).append("</offset>\n  </extensions>\n </rtept>\n");
       }
       sb.append("  <rtept lat=\"").append(formatILat(nodes.get(nodes.size() - 1).getILat())).append("\" lon=\"")
@@ -423,7 +536,7 @@ public final class OsmTrack {
       sb.append("</rte>\n");
     }
 
-    if (turnInstructionMode == 2) // locus style
+    if (turnInstructionMode == 7) // old locus style
     {
       float lastRteTime = getVoiceHintTime(0);
 
@@ -466,12 +579,12 @@ public final class OsmTrack {
           .append(formatILon(hint.ilon)).append("\">")
           .append(hint.selev == Short.MIN_VALUE ? "" : "<ele>" + (hint.selev / 4.) + "</ele>")
           .append("<extensions>\n" +
-            "<om:oruxmapsextensions xmlns:om=\"http://www.oruxmaps.com/oruxmapsextensions/1/0\">\n" +
-            "<om:ext type=\"ICON\" subtype=\"0\">").append("" + hint.getOruxAction())
+            "  <om:oruxmapsextensions xmlns:om=\"http://www.oruxmaps.com/oruxmapsextensions/1/0\">\n" +
+            "   <om:ext type=\"ICON\" subtype=\"0\">").append("" + hint.getOruxAction())
           .append("</om:ext>\n" +
-            "</om:oruxmapsextensions>\n" +
-            "</extensions>\n" +
-            "</wpt>");
+            "  </om:oruxmapsextensions>\n" +
+            "  </extensions>\n" +
+            " </wpt>\n");
       }
     }
 
@@ -500,34 +613,216 @@ public final class OsmTrack {
       }
     }
     sb.append(" <trk>\n");
-    sb.append("  <name>").append(name).append("</name>\n");
-    if (turnInstructionMode == 1) // trkpt/sym style
-    {
+    if (turnInstructionMode == 9) { // brouter style
+      sb.append("  <src>").append(name).append("</src>\n");
       sb.append("  <type>").append(voiceHints.getTransportMode()).append("</type>\n");
+    } else {
+      sb.append("  <name>").append(name).append("</name>\n");
     }
 
-    if (turnInstructionMode == 2) {
+    if (turnInstructionMode == 7) {
       sb.append("  <extensions>\n");
       sb.append("   <locus:rteComputeType>").append("" + voiceHints.getLocusRouteType()).append("</locus:rteComputeType>\n");
       sb.append("   <locus:rteSimpleRoundabouts>1</locus:rteSimpleRoundabouts>\n");
       sb.append("  </extensions>\n");
     }
 
+
+    // all points
     sb.append("  <trkseg>\n");
+    String lastway = "";
+    boolean bNextDirect = false;
+    OsmPathElement nn = null;
+    String aSpeed;
 
     for (int idx = 0; idx < nodes.size(); idx++) {
       OsmPathElement n = nodes.get(idx);
       String sele = n.getSElev() == Short.MIN_VALUE ? "" : "<ele>" + n.getElev() + "</ele>";
-      if (turnInstructionMode == 1) // trkpt/sym style
-      {
-        for (VoiceHint hint : voiceHints.list) {
-          if (hint.indexInTrack == idx) {
-            sele += "<sym>" + hint.getCommandString() + "</sym>";
+      VoiceHint hint = getVoiceHint(idx);
+      MatchedWaypoint mwpt = getMatchedWaypoint(idx);
+
+      if (showTime) {
+        sele += "<time>" + getFormattedTime3(n.getTime()) + "</time>";
+      }
+
+      boolean bNeedHeader = false;
+      if (turnInstructionMode == 9) { // trkpt/sym style
+
+        if (hint != null) {
+
+          if (mwpt != null &&
+            !mwpt.name.startsWith("via") && !mwpt.name.startsWith("from") && !mwpt.name.startsWith("end")) {
+            sele += "<name>" + mwpt.name + "</name>";
+          }
+          sele += "<desc>" + hint.getCruiserMessageString() + "</desc>";
+          sele += "<sym>" + hint.getCommandString(hint.cmd) + "</sym>";
+          if (mwpt != null) {
+            sele += "<type>Via</type>";
+          }
+          sele += "<extensions>";
+          if (showspeed) {
+            double speed = 0;
+            if (nn != null) {
+              int dist = n.calcDistance(nn);
+              float dt = n.getTime() - nn.getTime();
+              if (dt != 0.f) {
+                speed = ((3.6f * dist) / dt + 0.5);
+              }
+            }
+            sele += "<brouter:speed>" + (((int) (speed * 10)) / 10.f) + "</brouter:speed>";
+          }
+
+          sele += "<brouter:voicehint>" + hint.getCommandString() + ";" + (int) (hint.distanceToNext) + "," + hint.formatGeometry() + "</brouter:voicehint>";
+          if (n.message != null && n.message.wayKeyValues != null && !n.message.wayKeyValues.equals(lastway)) {
+            sele += "<brouter:way>" + n.message.wayKeyValues + "</brouter:way>";
+            lastway = n.message.wayKeyValues;
+          }
+          if (n.message != null && n.message.nodeKeyValues != null) {
+            sele += "<brouter:node>" + n.message.nodeKeyValues + "</brouter:node>";
+          }
+          sele += "</extensions>";
+
+        }
+        if (idx == 0 && hint == null) {
+          if (mwpt != null && mwpt.direct) {
+            sele += "<desc>beeline</desc>";
+          } else {
+            sele += "<desc>start</desc>";
+          }
+          sele += "<type>Via</type>";
+
+        } else if (idx == nodes.size() - 1 && hint == null) {
+
+          sele += "<desc>end</desc>";
+          sele += "<type>Via</type>";
+
+        } else {
+          if (mwpt != null && hint == null) {
+            if (mwpt.direct) {
+              // bNextDirect = true;
+              sele += "<desc>beeline</desc>";
+            } else {
+              sele += "<desc>" + mwpt.name + "</desc>";
+            }
+            sele += "<type>Via</type>";
+            bNextDirect = false;
+          }
+        }
+
+
+        if (hint == null) {
+          bNeedHeader = (showspeed || (n.message != null && n.message.wayKeyValues != null && !n.message.wayKeyValues.equals(lastway))) ||
+            (n.message != null && n.message.nodeKeyValues != null);
+          if (bNeedHeader) {
+            sele += "<extensions>";
+            if (showspeed) {
+              double speed = 0;
+              if (nn != null) {
+                int dist = n.calcDistance(nn);
+                float dt = n.getTime() - nn.getTime();
+                if (dt != 0.f) {
+                  speed = ((3.6f * dist) / dt + 0.5);
+                }
+              }
+              sele += "<brouter:speed>" + (((int) (speed * 10)) / 10.f) + "</brouter:speed>";
+            }
+            if (n.message != null && n.message.wayKeyValues != null && !n.message.wayKeyValues.equals(lastway)) {
+              sele += "<brouter:way>" + n.message.wayKeyValues + "</brouter:way>";
+              lastway = n.message.wayKeyValues;
+            }
+            if (n.message != null && n.message.nodeKeyValues != null) {
+              sele += "<brouter:node>" + n.message.nodeKeyValues + "</brouter:node>";
+            }
+            sele += "</extensions>";
+          }
+        }
+      }
+
+      if (turnInstructionMode == 2) { // locus style new
+        if (hint != null) {
+          if (mwpt != null) {
+            if (mwpt.direct && bNextDirect) {
+              sele += "<src>" + hint.getLocusSymbolString() + "</src><sym>pass_place</sym><type>Shaping</type>";
+              // bNextDirect = false;
+            } else if (mwpt.direct) {
+              sele += "<sym>pass_place</sym><type>Shaping</type>";
+              bNextDirect = true;
+            } else if (bNextDirect) {
+              sele += "<src>beeline</src><sym>" + hint.getLocusSymbolString() + "</sym><type>Shaping</type>";
+              bNextDirect = false;
+            } else {
+              sele += "<sym>" + hint.getLocusSymbolString() + "</sym>";
+            }
+          } else {
+            sele += "<sym>" + hint.getLocusSymbolString() + "</sym>";
+          }
+        } else {
+          if (idx == 0 && hint == null) {
+
+            int pos = sele.indexOf("<sym");
+            if (pos != -1) {
+              sele = sele.substring(0, pos);
+            }
+            if (mwpt != null && !mwpt.name.startsWith("from"))
+              sele += "<name>" + mwpt.name + "</name>";
+            if (mwpt != null && mwpt.direct) {
+              bNextDirect = true;
+            }
+            sele += "<sym>pass_place</sym>";
+            sele += "<type>Via</type>";
+
+          } else if (idx == nodes.size() - 1 && hint == null) {
+
+            int pos = sele.indexOf("<sym");
+            if (pos != -1) {
+              sele = sele.substring(0, pos);
+            }
+            if (mwpt != null && mwpt.name != null && !mwpt.name.startsWith("to"))
+              sele += "<name>" + mwpt.name + "</name>";
+            if (bNextDirect) {
+              sele += "<src>beeline</src>";
+            }
+            sele += "<sym>pass_place</sym>";
+            sele += "<type>Via</type>";
+
+          } else {
+            if (mwpt != null) {
+              if (sele.contains("sym") &&
+                !sele.contains("name") &&
+                !mwpt.name.startsWith("via") &&
+                !mwpt.name.startsWith("from") &&
+                !mwpt.name.startsWith("to")) {
+                int pos = sele.indexOf("<sym");
+                if (pos != -1)
+                  sele = sele.substring(0, pos) + "<name>" + mwpt.name + "</name>" + sele.substring(pos) + "<type>Via</type>";
+              } else if (sele.contains("sym") && mwpt.name.startsWith("via")) {
+                sele += "<type>Via</type>";
+              } else if (mwpt.direct && bNextDirect) {
+                sele += "<src>beeline</src><sym>pass_place</sym><type>Shaping</type>";
+              } else if (mwpt.direct) {
+                sele += "<sym>pass_place</sym><type>Shaping</type>";
+                bNextDirect = true;
+              } else if (mwpt.name.startsWith("via") ||
+                mwpt.name.startsWith("from") ||
+                mwpt.name.startsWith("to")) {
+                if (bNextDirect) {
+                  sele += "<src>beeline</src><sym>pass_place</sym><type>Shaping</type>";
+                } else {
+                  sele += "<sym>pass_place</sym><type>Shaping</type>";
+                }
+                bNextDirect = false;
+              } else {
+                sele += "<name>" + mwpt.name + "</name>";
+                sele += "<sym>pass_place</sym><type>Via</type>";
+              }
+            }
           }
         }
       }
       sb.append("   <trkpt lon=\"").append(formatILon(n.getILon())).append("\" lat=\"")
         .append(formatILat(n.getILat())).append("\">").append(sele).append("</trkpt>\n");
+
+      nn = n;
     }
 
     sb.append("  </trkseg>\n");
@@ -798,6 +1093,26 @@ public final class OsmTrack {
     sb.append("    }");
   }
 
+  private VoiceHint getVoiceHint(int i) {
+    if (voiceHints == null) return null;
+    for (VoiceHint hint : voiceHints.list) {
+      if (hint.indexInTrack == i) {
+        return hint;
+      }
+    }
+    return null;
+  }
+
+  private MatchedWaypoint getMatchedWaypoint(int idx) {
+    if (matchedWaypoints == null) return null;
+    for (MatchedWaypoint wp : matchedWaypoints) {
+      if (idx == wp.indexInTrack) {
+        return wp;
+      }
+    }
+    return null;
+  }
+
   private int getVNode(int i) {
     MessageData m1 = i + 1 < nodes.size() ? nodes.get(i + 1).message : null;
     MessageData m0 = i < nodes.size() ? nodes.get(i).message : null;
@@ -828,6 +1143,18 @@ public final class OsmTrack {
     if (seconds != 0)
       time = time + seconds + "s";
     return time;
+  }
+
+  SimpleDateFormat TIMESTAMP_FORMAT;
+
+  public String getFormattedTime3(float time) {
+    if (TIMESTAMP_FORMAT == null) {
+      TIMESTAMP_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+      TIMESTAMP_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
+    }
+    // yyyy-mm-ddThh:mm:ss.SSSZ
+    Date d = new Date((long) (time * 1000f));
+    return TIMESTAMP_FORMAT.format(d);
   }
 
   public String getFormattedEnergy() {
@@ -928,6 +1255,12 @@ public final class OsmTrack {
     return true;
   }
 
+  public OsmPathElementHolder getFromDetourMap(long id) {
+    if (detourMap == null)
+      return null;
+    return detourMap.get(id);
+  }
+
   public void prepareSpeedProfile(RoutingContext rc) {
     // sendSpeedProfile = rc.keyValues != null && rc.keyValues.containsKey( "vmax" );
   }
@@ -941,7 +1274,17 @@ public final class OsmTrack {
       return;
     }
     int nodeNr = nodes.size() - 1;
+    int i = nodeNr;
     OsmPathElement node = nodes.get(nodeNr);
+    while (node != null) {
+      if (node.origin != null) {
+      }
+      node = node.origin;
+    }
+
+    i = 0;
+
+    node = nodes.get(nodeNr);
     List<VoiceHint> inputs = new ArrayList<VoiceHint>();
     while (node != null) {
       if (node.origin != null) {
@@ -953,15 +1296,29 @@ public final class OsmTrack {
         input.indexInTrack = --nodeNr;
         input.goodWay = node.message;
         input.oldWay = node.origin.message == null ? node.message : node.origin.message;
-
+        if (rc.turnInstructionMode == 8 ||
+          rc.turnInstructionMode == 4 ||
+          rc.turnInstructionMode == 2 ||
+          rc.turnInstructionMode == 9) {
+          MatchedWaypoint mwpt = getMatchedWaypoint(nodeNr);
+          if (mwpt != null && mwpt.direct) {
+            input.cmd = VoiceHint.BL;
+            input.angle = (float) (nodeNr == 0 ? node.origin.message.turnangle : node.message.turnangle);
+            input.distanceToNext = node.calcDistance(node.origin);
+          }
+        }
         OsmPathElementHolder detours = detourMap.get(node.origin.getIdFromPos());
-        if (detours != null) {
+        if (nodeNr >= 0 && detours != null) {
           OsmPathElementHolder h = detours;
           while (h != null) {
             OsmPathElement e = h.node;
             input.addBadWay(startSection(e, node.origin));
             h = h.nextHolder;
           }
+        } else if (nodeNr == 0 && detours != null) {
+          OsmPathElementHolder h = detours;
+          OsmPathElement e = h.node;
+          input.addBadWay(startSection(e, e));
         }
       }
       node = node.origin;
@@ -969,9 +1326,29 @@ public final class OsmTrack {
 
     VoiceHintProcessor vproc = new VoiceHintProcessor(rc.turnInstructionCatchingRange, rc.turnInstructionRoundabouts);
     List<VoiceHint> results = vproc.process(inputs);
-    for (VoiceHint hint : results) {
+
+    double minDistance = getMinDistance();
+    List<VoiceHint> resultsLast = vproc.postProcess(results, rc.turnInstructionCatchingRange, minDistance);
+    for (VoiceHint hint : resultsLast) {
       voiceHints.list.add(hint);
     }
+
+  }
+
+  int getMinDistance() {
+    if (voiceHints != null) {
+      switch (voiceHints.getTransportMode()) {
+        case "car":
+          return 20;
+        case "bike":
+          return 5;
+        case "foot":
+          return 3;
+        default:
+          return 5;
+      }
+    }
+    return 2;
   }
 
   private float getVoiceHintTime(int i) {
@@ -987,6 +1364,17 @@ public final class OsmTrack {
     return nodes.get(nodes.size() - 1).getTime();
   }
 
+  public void removeVoiceHint(int i) {
+    if (voiceHints != null) {
+      VoiceHint remove = null;
+      for (VoiceHint vh : voiceHints.list) {
+        if (vh.indexInTrack == i)
+          remove = vh;
+      }
+      if (remove != null)
+        voiceHints.list.remove(remove);
+    }
+  }
 
   private MessageData startSection(OsmPathElement element, OsmPathElement root) {
     OsmPathElement e = element;
