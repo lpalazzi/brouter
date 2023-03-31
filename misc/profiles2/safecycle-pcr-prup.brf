@@ -16,7 +16,10 @@ assign preferBikeFriendly       = false  # %preferBikeFriendly% | Set to true to
 assign preferCycleRoutes = true # %preferCycleRoutes% | Set to true to just follow cycleroutes | boolean
 
 # Surface preferences
-assign surfacePref = preferUnpaved # %surfacePref% | strictUnpaved|preferUnpaved|none|preferPaved|strictPaved
+assign strictUnpaved            = false # %strictUnpaved% | Set to true to just follow cycleroutes | boolean
+assign preferUnpaved = true # %preferUnpaved% | Set to true to just follow cycleroutes | boolean
+assign strictPaved              = false # %strictPaved% | Set to true to just follow cycleroutes | boolean
+assign preferPaved              = false # %preferPaved% | Set to true to just follow cycleroutes | boolean
 
 # Use the following switches to change behaviour
 assign allow_steps              = true   # %allow_steps% | Set to false to disallow steps | boolean
@@ -77,8 +80,8 @@ assign isbike = or bicycle_road=yes or bicycle=yes or or bicycle=permissive bicy
 assign ispaved = surface=paved|asphalt|concrete|paving_stones|sett
 assign isunpaved = not or surface= or ispaved surface=fine_gravel|cobblestone
 assign probablyGood = 
-              if      surfacePref=preferPaved   then ( or ispaved and ( or isbike highway=footway ) not isunpaved )
-              else if surfacePref=preferUnpaved then ( or isunpaved and ( or isbike highway=footway ) not ispaved )
+              if      preferPaved     then ( or ispaved and ( or isbike highway=footway ) not isunpaved )
+              else if preferUnpaved   then ( or isunpaved and ( or isbike highway=footway ) not ispaved )
               else ( or isbike highway=footway )
 
 #
@@ -198,12 +201,12 @@ assign costfactor
   #
   # exclude unpaved roads
   #
-  else if ( and surfacePref=strictPaved not or surface= ispaved ) then 10000
+  else if ( and strictPaved not or surface= ispaved ) then 10000
   
   #
   # exclude paved roads
   #
-  else if ( and surfacePref=strictUnpaved not or surface= isunpaved ) then 10000
+  else if ( and strictUnpaved not or surface= isunpaved ) then 10000
 
   #
   # all other exclusions below (access, steps, ferries,..)
