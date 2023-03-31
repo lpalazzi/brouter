@@ -1,4 +1,4 @@
-# *** The trekking profile is for slow travel
+# *** The safecycle profile is for slow travel
 # *** and avoiding car traffic, but still with
 # *** a focus on approaching your destination
 # *** efficiently.
@@ -11,10 +11,12 @@ assign validForBikes = true
 # Allow 800m buffer for waypoints not directly on a routable location 
 assign waypointCatchingRange = 800.0
 
-# Switches based on user's route preferences
-assign avoid_unsafe             = false  # %avoid_unsafe% | Set to true to avoid standard highways | boolean
-assign preferPaved              = true   # %preferPaved% | Set to true to avoid unpaved and undefined road types | boolean
-assign stick_to_cycleroutes     = true   # %stick_to_cycleroutes% | Set to true to just follow cycleroutes | boolean
+# Route preferences
+assign preferBikeFriendly = true # %preferBikeFriendly% | Set to true to avoid standard highways | boolean
+assign preferCycleRoutes = true # %preferCycleRoutes% | Set to true to just follow cycleroutes | boolean
+
+# Surface preferences
+assign surfacePref = strictUnpaved # %surfacePref% | strictUnpaved|preferUnpaved|none|preferPaved|strictPaved
 
 # Use the following switches to change behaviour
 assign allow_steps              = true   # %allow_steps% | Set to false to disallow steps | boolean
@@ -74,8 +76,10 @@ assign is_ldcr =
 assign isbike = or bicycle_road=yes or bicycle=yes or or bicycle=permissive bicycle=designated lcn=yes
 assign ispaved = surface=paved|asphalt|concrete|paving_stones|sett
 assign isunpaved = not or surface= or ispaved surface=fine_gravel|cobblestone
-assign probablyGood = or ispaved and ( or isbike highway=footway ) not isunpaved
-
+assign probablyGood = 
+              if      surfacePref=preferPaved   then ( or ispaved and ( or isbike highway=footway ) not isunpaved )
+              else if surfacePref=preferUnpaved then ( or isunpaved and ( or isbike highway=footway ) not ispaved )
+              else ( or isbike highway=footway )
 
 #
 # this is the cost (in Meter) for a 90-degree turn
@@ -194,7 +198,12 @@ assign costfactor
   #
   # exclude unpaved roads
   #
-  else if ( and preferPaved not or surface= ispaved ) then 10000
+  else if ( and surfacePref=strictPaved not or surface= ispaved ) then 10000
+  
+  #
+  # exclude paved roads
+  #
+  else if ( and surfacePref=strictUnpaved not or surface= isunpaved ) then 10000
 
   #
   # all other exclusions below (access, steps, ferries,..)
@@ -221,7 +230,7 @@ assign costfactor
   #
   else if ( is_ldcr ) then 1                   # always treated as perfect (=1)
   else
-  add ( if stick_to_cycleroutes then 4.5 else 0.05 )  # everything else somewhat up
+  add ( if preferCycleRoutes then 4.5 else 0.05 )  # everything else somewhat up
 
   #
   # some other highway types
@@ -250,7 +259,7 @@ assign costfactor
   #
   # When avoiding unsafe ways, avoid highways without a bike hint
   #
-  else add ( if ( and avoid_unsafe not isbike ) then 2 else 0 )
+  else add ( if ( and preferBikeFriendly not isbike ) then 2 else 0 )
 
   #
   # actuals roads are o.k. if we have a bike hint
