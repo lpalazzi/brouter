@@ -1,5 +1,8 @@
 ---context:global   # following code refers to global config
 
+# Allow 800m buffer for waypoints not directly on a routable location 
+assign waypointCatchingRange = 800.0
+
 # the elevation parameters
 
 assign downhillcost 0
