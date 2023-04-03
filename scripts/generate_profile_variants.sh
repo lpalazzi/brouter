@@ -2,6 +2,12 @@
 cd "$(dirname "$0")"
 cd ../misc/profiles2
 
+# !preferBikeFriendly & !preferCycleRoutes
+sed -e "s/^assign[[:space:]]\+strictUnpaved.*\(#.*\)/assign strictUnpaved = true \1/" safecycle.brf > safecycle-stup.brf
+sed -e "s/^assign[[:space:]]\+preferUnpaved.*\(#.*\)/assign preferUnpaved = true \1/" safecycle.brf > safecycle-prup.brf
+sed -e "s/^assign[[:space:]]\+preferPaved.*\(#.*\)/assign preferPaved = true \1/" safecycle.brf > safecycle-prp.brf
+sed -e "s/^assign[[:space:]]\+strictPaved.*\(#.*\)/assign strictPaved = true \1/" safecycle.brf > safecycle-stp.brf
+
 # preferBikeFriendly & !preferCycleRoutes
 sed -e "s/^assign[[:space:]]\+preferBikeFriendly.*\(#.*\)/assign preferBikeFriendly = true \1/" safecycle.brf > safecycle-pbf.brf
 sed -e "s/^assign[[:space:]]\+strictUnpaved.*\(#.*\)/assign strictUnpaved = true \1/" safecycle-pbf.brf > safecycle-pbf-stup.brf
