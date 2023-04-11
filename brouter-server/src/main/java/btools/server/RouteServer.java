@@ -325,10 +325,10 @@ public class RouteServer extends Thread implements Comparable<RouteServer> {
       if (debug) System.out.println("threadQueue.size()=" + threadQueue.size());
       if (threadQueue.size() >= maxthreads) {
         synchronized (threadPoolSync) {
-          // wait up to 2000ms (maybe notified earlier)
+          // wait up to 10000ms (maybe notified earlier)
           // to prevent killing short-running threads
           long maxage = server.starttime - threadQueue.peek().starttime;
-          long maxWaitTime = 2000L - maxage;
+          long maxWaitTime = 10000L - maxage;
           if (debug) System.out.println("maxage=" + maxage + " maxWaitTime=" + maxWaitTime);
           if (debug) {
             for (RouteServer t : threadQueue) {
