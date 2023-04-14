@@ -202,7 +202,7 @@ assign costfactor
   #
   # prefer paved roads
   #
-  else if ( and preferPaved ispaved ) then 0.001
+  else if ( and preferPaved isunpaved ) then 100
 
   #
   # prefer unpaved roads
