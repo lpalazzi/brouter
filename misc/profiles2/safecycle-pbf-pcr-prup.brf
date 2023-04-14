@@ -78,7 +78,9 @@ assign is_ldcr =
 assign isbike = or bicycle_road=yes or bicycle=yes or or bicycle=permissive bicycle=designated lcn=yes
 assign ispaved = surface=paved|asphalt|concrete|paving_stones|sett
 assign isunpaved = not or surface= or ispaved surface=fine_gravel|cobblestone
-assign probablyGood = or ispaved and ( or isbike highway=footway ) not isunpaved
+assign probablyGood = 
+              if preferUnpaved then ( or isbike highway=footway )
+              else ( or ispaved and ( or isbike highway=footway ) not isunpaved )
 
 #
 # this is the cost (in Meter) for a 90-degree turn
