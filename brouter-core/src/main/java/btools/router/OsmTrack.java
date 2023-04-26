@@ -950,6 +950,11 @@ public final class OsmTrack {
       for (VoiceHint hint : voiceHints.list) {
         sb.append("          [");
         sb.append(hint.indexInTrack);
+        if (turnInstructionMode == 7) {
+          sb.append(',').append(formatILat(hint.ilat));
+          sb.append(',').append(formatILon(hint.ilon));
+          sb.append(",\"").append(hint.getMessageString()).append("\"");
+        }
         sb.append(',').append(hint.getCommand());
         sb.append(',').append(hint.getExitNumber());
         sb.append(',').append(hint.distanceToNext);
