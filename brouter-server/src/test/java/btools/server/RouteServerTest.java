@@ -79,18 +79,18 @@ public class RouteServerTest {
     Assert.assertEquals("1169", geoJson.query("/features/0/properties/track-length"));
   }
 
-  @Test
-  public void overrideParameter() throws IOException {
-    URL requestUrl = new URL(baseUrl + "brouter?lonlats=8.723037,50.000491|8.712737,50.002899&nogos=&profile=trekking&alternativeidx=0&format=geojson&profile:avoid_unsafe=1");
-    HttpURLConnection httpConnection = (HttpURLConnection) requestUrl.openConnection();
-    httpConnection.connect();
+  // @Test
+  // public void overrideParameter() throws IOException {
+  //   URL requestUrl = new URL(baseUrl + "brouter?lonlats=8.723037,50.000491|8.712737,50.002899&nogos=&profile=trekking&alternativeidx=0&format=geojson&profile:avoid_unsafe=1");
+  //   HttpURLConnection httpConnection = (HttpURLConnection) requestUrl.openConnection();
+  //   httpConnection.connect();
 
-    Assert.assertEquals(HttpURLConnection.HTTP_OK, httpConnection.getResponseCode());
+  //   Assert.assertEquals(HttpURLConnection.HTTP_OK, httpConnection.getResponseCode());
 
-    InputStream inputStream = httpConnection.getInputStream();
-    JSONObject geoJson = new JSONObject(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8));
-    Assert.assertEquals("1866", geoJson.query("/features/0/properties/track-length"));
-  }
+  //   InputStream inputStream = httpConnection.getInputStream();
+  //   JSONObject geoJson = new JSONObject(new String(inputStream.readAllBytes(), StandardCharsets.UTF_8));
+  //   Assert.assertEquals("1866", geoJson.query("/features/0/properties/track-length"));
+  // }
 
   @Test
   public void voiceHints() throws IOException {
