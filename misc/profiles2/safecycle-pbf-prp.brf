@@ -209,7 +209,7 @@ assign costfactor
   #
   # prefer unpaved roads
   #
-  else if ( and preferUnpaved isunpaved ) then 0.0001
+  else if ( and preferUnpaved not isunpaved ) then 100
 
   #
   # all other exclusions below (access, steps, ferries,..)
